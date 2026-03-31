@@ -1,11 +1,17 @@
 export default async function handler(req, res) {
   try {
+    // 🔒 sadece POST kabul et
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
     const { text } = req.body;
 
     if (!text) {
       return res.status(400).json({ error: "No text provided" });
     }
 
+    // 🔥 OPENAI CALL
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -24,7 +30,7 @@ Aşağıdaki metni analiz et:
 Metin:
 ${text}
 
-JSON formatında cevap ver:
+SADECE JSON dön:
 {
   "sentiment": "",
   "summary": "",
@@ -34,44 +40,46 @@ JSON formatında cevap ver:
       })
     });
 
-    // 🔥 BURASI KRİTİK
-    if (!response.ok) {
-      const errText = await response.text();
-      console.log("❌ OPENAI ERROR:", errText);
-      return res.status(500).json({ error: "OpenAI request failed" });
-    }
-
     const data = await response.json();
 
+    // 🔥 DEBUG (çok önemli)
     console.log("🔥 FULL OPENAI RESPONSE:", JSON.stringify(data, null, 2));
 
-    // 🔥 GÜVENLİ PARSE
+    // 🔥 SAFE PARSE (KRİTİK)
     let content = null;
 
     if (data.output && data.output.length > 0) {
       const first = data.output[0];
-
       if (first.content && first.content.length > 0) {
         content = first.content[0].text;
       }
     }
 
+    // fallback
     if (!content && data.output_text) {
       content = data.output_text;
     }
 
     if (!content) {
-      return res.status(500).json({ error: "AI response boş geldi" });
+      return res.status(500).json({
+        error: "AI response boş geldi",
+        raw: data
+      });
     }
 
+    // 🔥 JSON PARSE
     let parsed;
     try {
       parsed = JSON.parse(content);
     } catch (e) {
-      console.log("❌ JSON PARSE FAIL:", content);
-      return res.status(500).json({ error: "JSON parse edilemedi" });
+      console.error("❌ JSON PARSE ERROR:", content);
+      return res.status(500).json({
+        error: "JSON parse edilemedi",
+        raw: content
+      });
     }
 
+    // 🔥 SUCCESS
     return res.status(200).json(parsed);
 
   } catch (error) {
