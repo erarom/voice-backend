@@ -36,14 +36,34 @@ JSON formatında cevap ver:
 
     const data = await response.json();
 
-    // 🔥 YENİ DOĞRU YER
-    const content = data.output?.[0]?.content?.[0]?.text;
+    // 🔥 TÜM OLASI FORMATLARI DENE
+    let content = null;
+
+    if (data.output && data.output.length > 0) {
+      const first = data.output[0];
+
+      if (first.content && first.content.length > 0) {
+        content = first.content[0].text;
+      }
+    }
+
+    // fallback (bazı durumlarda direkt text geliyor)
+    if (!content && data.output_text) {
+      content = data.output_text;
+    }
 
     if (!content) {
+      console.log("🔥 FULL DATA:", JSON.stringify(data, null, 2));
       return res.status(500).json({ error: "AI response boş geldi" });
     }
 
-    const parsed = JSON.parse(content);
+    // JSON parse güvenli
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      return res.status(500).json({ error: "JSON parse edilemedi", raw: content });
+    }
 
     return res.status(200).json(parsed);
 
