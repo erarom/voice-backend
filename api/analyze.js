@@ -34,9 +34,18 @@ JSON formatında cevap ver:
       })
     });
 
+    // 🔥 BURASI KRİTİK
+    if (!response.ok) {
+      const errText = await response.text();
+      console.log("❌ OPENAI ERROR:", errText);
+      return res.status(500).json({ error: "OpenAI request failed" });
+    }
+
     const data = await response.json();
 
-    // 🔥 TÜM OLASI FORMATLARI DENE
+    console.log("🔥 FULL OPENAI RESPONSE:", JSON.stringify(data, null, 2));
+
+    // 🔥 GÜVENLİ PARSE
     let content = null;
 
     if (data.output && data.output.length > 0) {
@@ -47,22 +56,20 @@ JSON formatında cevap ver:
       }
     }
 
-    // fallback (bazı durumlarda direkt text geliyor)
     if (!content && data.output_text) {
       content = data.output_text;
     }
 
     if (!content) {
-      console.log("🔥 FULL DATA:", JSON.stringify(data, null, 2));
       return res.status(500).json({ error: "AI response boş geldi" });
     }
 
-    // JSON parse güvenli
     let parsed;
     try {
       parsed = JSON.parse(content);
-    } catch {
-      return res.status(500).json({ error: "JSON parse edilemedi", raw: content });
+    } catch (e) {
+      console.log("❌ JSON PARSE FAIL:", content);
+      return res.status(500).json({ error: "JSON parse edilemedi" });
     }
 
     return res.status(200).json(parsed);
